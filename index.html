@@ -23,9 +23,43 @@
             </div>
         </div>
 
-        <!-- 조감도와 컨트롤을 나란히 배치 -->
+        <!-- 조감도 시뮬레이터 -->
+        <div class="main-simulator-container">
+            <div class="canvas-container">
+                <canvas id="parallaxCanvas" width="800" height="600"></canvas>
+                <h3 class="canvas-title"><i class="fas fa-eye"></i> 조감도 (위에서 내려다본 시점)</h3>
+                
+                <!-- 측정값 표시 패널 -->
+                <div class="measurements-panel">
+                    <h3><i class="fas fa-ruler"></i> 측정값</h3>
+                    <div class="measurement-item">
+                        <label>지구 위치:</label>
+                        <span id="earthPosition">A점</span>
+                    </div>
+                    <div class="measurement-item">
+                        <label>별 X 연주시차:</label>
+                        <span id="starXParallax">0.0"</span>
+                    </div>
+                    <div class="measurement-item">
+                        <label>별 Y 연주시차:</label>
+                        <span id="starYParallax">0.0"</span>
+                    </div>
+                    <div class="measurement-item">
+                        <label>별 X 거리:</label>
+                        <span id="starXDistance">0.0 pc</span>
+                    </div>
+                    <div class="measurement-item">
+                        <label>별 Y 거리:</label>
+                        <span id="starYDistance">0.0 pc</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 기존 컨트롤 컨테이너 -->
         <div class="simulator-container">
-            <!-- 컨트롤 패널 (왼쪽) -->
+
+            <!-- 컨트롤 패널 -->
             <div class="controls-container">
                 <div class="animation-controls">
                     <h3><i class="fas fa-play-circle"></i> 애니메이션 제어</h3>
@@ -58,40 +92,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 조감도 시뮬레이터 (오른쪽) -->
-            <div class="canvas-container">
-                <canvas id="parallaxCanvas" width="800" height="600"></canvas>
-                <h3 class="canvas-title"><i class="fas fa-eye"></i> 조감도 (위에서 내려다본 시점)</h3>
-                
-                <!-- 측정값 표시 패널 -->
-                <div class="measurements-panel">
-                    <h3><i class="fas fa-ruler"></i> 측정값</h3>
-                    <div class="measurement-item">
-                        <label>지구 위치:</label>
-                        <span id="earthPosition">A점</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 X 연주시차:</label>
-                        <span id="starXParallax">0.0"</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 Y 연주시차:</label>
-                        <span id="starYParallax">0.0"</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 X 거리:</label>
-                        <span id="starXDistance">0.0 pc</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 Y 거리:</label>
-                        <span id="starYDistance">0.0 pc</span>
-                    </div>
-                </div>
-            </div>
         </div>
-
-
 
         <!-- 설명 패널 -->
         <div class="explanation-panel">

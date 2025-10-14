@@ -648,17 +648,15 @@ class ParallaxSimulator {
     
     calculateCelestialPositions() {
         // 지구 위치에 따른 천구상 별 위치 계산
-        // 연주시차 효과: A점(가장 왼쪽) -> B점(가장 오른쪽)
+        // 연주시차 효과: 지구가 A점일 때와 B점일 때의 각도 차이
         
         // 화면 폭의 10% 정도를 최대 시차 범위로 설정 (화면 이탈 방지)
         const screenWidth = this.celestialCanvas.width / window.devicePixelRatio;
         const maxOffset = screenWidth * 0.08; // 8% 범위로 제한
         
-        // 별 X의 천구상 위치 (연주시차 효과 적용, 방향 반전)
+        // 별 X의 천구상 위치 (연주시차 효과 적용, 범위 제한)
         const parallaxFactorX = this.stars.X.parallax * 50; // 시각적 효과를 위한 배율
-        // cos(0) = 1 (A점), cos(π) = -1 (B점)이므로 -cos를 사용하여 방향 반전
-        // A점에서 -1 (왼쪽), B점에서 +1 (오른쪽)
-        const rawOffsetX = parallaxFactorX * (-Math.cos(this.earthPhase));
+        const rawOffsetX = parallaxFactorX * Math.cos(this.earthPhase);
         const constrainedOffsetX = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX));
         
         // 각도를 픽셀로 변환하여 계산
@@ -666,9 +664,9 @@ class ParallaxSimulator {
         const finalXPixel = baseXPixel + constrainedOffsetX;
         this.celestialData.starX.angle = (finalXPixel / screenWidth) * 360;
         
-        // 별 Y의 천구상 위치 (더 작은 연주시차 효과, 같은 방향)
+        // 별 Y의 천구상 위치 (더 작은 연주시차 효과)
         const parallaxFactorY = this.stars.Y.parallax * 50;
-        const rawOffsetY = parallaxFactorY * (-Math.cos(this.earthPhase));
+        const rawOffsetY = parallaxFactorY * Math.cos(this.earthPhase);
         const constrainedOffsetY = Math.max(-maxOffset/4, Math.min(maxOffset/4, rawOffsetY)); // 더 작은 범위
         
         const baseYPixel = (this.celestialData.starY.baseAngle / 360) * screenWidth;
