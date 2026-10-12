@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>연주시차 시뮬레이터</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 </head>
@@ -23,35 +23,41 @@
             </div>
         </div>
 
-        <!-- 조감도 시뮬레이터 -->
+        <!-- 조감도 시뮬레이터: 전체 배치(왼쪽) + 태양 주변 확대(오른쪽) -->
         <div class="main-simulator-container">
-            <div class="canvas-container">
-                <canvas id="parallaxCanvas" width="800" height="600"></canvas>
-                <h3 class="canvas-title"><i class="fas fa-eye"></i> 조감도 (위에서 내려다본 시점)</h3>
-                
-                <!-- 측정값 표시 패널 -->
-                <div class="measurements-panel">
-                    <h3><i class="fas fa-ruler"></i> 측정값</h3>
-                    <div class="measurement-item">
-                        <label>지구 위치:</label>
-                        <span id="earthPosition">A점</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 X 연주시차:</label>
-                        <span id="starXParallax">0.0"</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 Y 연주시차:</label>
-                        <span id="starYParallax">0.0"</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 X 거리:</label>
-                        <span id="starXDistance">0.0 pc</span>
-                    </div>
-                    <div class="measurement-item">
-                        <label>별 Y 거리:</label>
-                        <span id="starYDistance">0.0 pc</span>
-                    </div>
+            <div class="topdown-views">
+                <div class="canvas-container">
+                    <canvas id="overviewCanvas" width="600" height="620"></canvas>
+                    <h3 class="canvas-title"><i class="fas fa-map"></i> 전체 배치 조감도</h3>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="parallaxCanvas" width="600" height="620"></canvas>
+                    <h3 class="canvas-title"><i class="fas fa-search-plus"></i> 확대 조감도 (태양 주변)</h3>
+                </div>
+            </div>
+
+            <!-- 측정값 표시 패널 -->
+            <div class="measurements-panel">
+                <h3><i class="fas fa-ruler"></i> 측정값</h3>
+                <div class="measurement-item">
+                    <label>지구 위치:</label>
+                    <span id="earthPosition">A점</span>
+                </div>
+                <div class="measurement-item">
+                    <label>별 S 연주시차:</label>
+                    <span id="starSParallax">0.0"</span>
+                </div>
+                <div class="measurement-item">
+                    <label>별 T 연주시차:</label>
+                    <span id="starTParallax">0.0"</span>
+                </div>
+                <div class="measurement-item">
+                    <label>별 S 거리:</label>
+                    <span id="starSDistance">0.0 pc</span>
+                </div>
+                <div class="measurement-item">
+                    <label>별 T 거리:</label>
+                    <span id="starTDistance">0.0 pc</span>
                 </div>
             </div>
         </div>
@@ -81,14 +87,14 @@
                 <div class="distance-controls">
                     <h3><i class="fas fa-arrows-alt-h"></i> 거리 설정</h3>
                     <div class="distance-control">
-                        <label for="starXDistanceSlider">별 X 거리 (pc):</label>
-                        <input type="range" id="starXDistanceSlider" min="0.5" max="20" step="0.1" value="2">
-                        <span id="starXDistanceValue">2.0</span>
+                        <label for="starSDistanceSlider">별 S 거리 (pc):</label>
+                        <input type="range" id="starSDistanceSlider" min="0.5" max="20" step="0.1" value="2">
+                        <span id="starSDistanceValue">2.0</span>
                     </div>
                     <div class="distance-control">
-                        <label for="starYDistanceSlider">별 Y 거리 (pc):</label>
-                        <input type="range" id="starYDistanceSlider" min="5" max="100" step="1" value="20">
-                        <span id="starYDistanceValue">20.0</span>
+                        <label for="starTDistanceSlider">별 T 거리 (pc):</label>
+                        <input type="range" id="starTDistanceSlider" min="5" max="100" step="1" value="20">
+                        <span id="starTDistanceValue">20.0</span>
                     </div>
                 </div>
             </div>
@@ -118,6 +124,6 @@
         </div>
     </div>
 
-    <script src="js/parallax-simulator.js"></script>
+    <script src="js/parallax-simulator.js?v=2"></script>
 </body>
 </html>
