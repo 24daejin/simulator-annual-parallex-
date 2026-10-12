@@ -18,7 +18,11 @@ class ParallaxSimulator {
         this.isPlaying = false;
         this.animationSpeed = 1.0;
         this.time = 0;
-        this.earthOrbitRadius = 100;
+        this.earthOrbitRadius = 40;
+        // 조감도 축척: 1pc당 픽셀 수 (모든 거리에 같은 축척을 적용해 시차각 비율을 유지)
+        this.pxPerParsec = 96;
+        // 이 높이보다 위로 넘어가는 별은 '화면 밖'으로 표시
+        this.visibleTopY = 90;
         
         // A/B점 도달 감지 및 강조 효과
         this.highlightEffect = {
@@ -39,32 +43,24 @@ class ParallaxSimulator {
         this.initializeCelestialSphere();
         
         // 별 데이터 (태양-별X-별Y 완전 일직선 배치)
-        // 별들은 위쪽에 배치 (원래대로)
+        // y 좌표는 updateStarPositions()에서 거리(pc) × 축척으로 계산
         this.stars = {
             X: {
                 distance: 2.0, // parsecs
                 x: 0,    // 태양과 같은 x좌표 (일직선)
-                y: -200, // 태양에서 위쪽으로 (가까운 별)
+                y: 0,
                 parallax: 0,
-                color: '#ffeb3b', // 밝은 노란색
-                baseAngle: 0
+                color: '#ffeb3b' // 밝은 노란색
             },
             Y: {
-                distance: 20.0, // parsecs  
+                distance: 20.0, // parsecs
                 x: 0,    // 태양과 같은 x좌표 (일직선)
-                y: -350, // 별X보다 더 멀리 (태양-별X-별Y 일직선)
+                y: 0,
                 parallax: 0,
-                color: '#ff9800', // 주황색
-                baseAngle: 0
+                color: '#ff9800' // 주황색
             }
         };
-        
-        // 전체 천체 시스템을 아래로 이동시키기 위한 오프셋
-        this.systemOffset = {
-            x: 0,
-            y: 80  // 전체를 80px 아래로 이동
-        };
-        
+
         // 배경별들
         this.backgroundStars = [];
         this.generateBackgroundStars();
@@ -111,6 +107,9 @@ class ParallaxSimulator {
         
         this.centerX = rect.width / 2;
         this.centerY = rect.height / 2;
+        this.canvasWidth = rect.width;
+        // 별이 위쪽으로 멀리 놓일 수 있도록 태양을 아래쪽에 배치
+        this.sunY = rect.height - 130;
         
         // 천구 캔버스 크기 설정
         const celestialRect = this.celestialCanvas.getBoundingClientRect();
@@ -119,18 +118,19 @@ class ParallaxSimulator {
         this.celestialCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
         
         this.celestialCenterX = celestialRect.width / 2;
-        this.celestialCenterY = celestialRect.height / 2;
+        this.celestialHeight = celestialRect.height;
+        // 배경별 줄의 중심 (위쪽은 별 X, 아래쪽은 별 Y 자리)
+        this.celestialCenterY = celestialRect.height * 0.56;
     }
     
     generateBackgroundStars() {
         this.backgroundStars = [];
-        // 조감도 시점용 배경별 생성 (더 멀리 배치)
-        for (let i = 0; i < 150; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.random() * 400 + 300; // 더 멀리 배치
+        // 배경별은 대상 별들보다 훨씬 멀리 있으므로 화면 맨 위쪽 띠에만 배치
+        // x는 캔버스 폭 대비 비율(0~1), y는 캔버스 상단에서의 픽셀
+        for (let i = 0; i < 120; i++) {
             this.backgroundStars.push({
-                x: Math.cos(angle) * distance,
-                y: Math.sin(angle) * distance,
+                x: Math.random(),
+                y: Math.random() * 32 + 8,
                 brightness: Math.random() * 0.6 + 0.3,
                 size: Math.random() * 1.5 + 0.5
             });
@@ -209,7 +209,11 @@ class ParallaxSimulator {
         // 연주시차 (초각) = 1 / 거리 (파섹)
         this.stars.X.parallax = 1 / this.stars.X.distance;
         this.stars.Y.parallax = 1 / this.stars.Y.distance;
-        
+
+        // 조감도상 위치: 거리에 비례 (같은 축척이므로 그림 속 시차각도 1/거리에 비례)
+        this.stars.X.y = -this.stars.X.distance * this.pxPerParsec;
+        this.stars.Y.y = -this.stars.Y.distance * this.pxPerParsec;
+
         // A점과 B점 도달 감지 및 강조 효과
         const tolerance = 0.1; // 도달 감지 허용 오차
         
@@ -249,11 +253,15 @@ class ParallaxSimulator {
     }
     
     project2D(x, y) {
-        // 조감도 시점: 2D 좌표를 캔버스 좌표로 변환 (전체 시스템 오프셋 적용)
+        // 조감도 시점: 태양 기준 2D 좌표를 캔버스 좌표로 변환
         return {
-            x: this.centerX + x + this.systemOffset.x,
-            y: this.centerY + y + this.systemOffset.y
+            x: this.centerX + x,
+            y: this.sunY + y
         };
+    }
+
+    isOffScreen(pos) {
+        return pos.y < this.visibleTopY;
     }
     
     drawSun() {
@@ -264,15 +272,15 @@ class ParallaxSimulator {
         this.ctx.shadowColor = '#ffd700';
         this.ctx.shadowBlur = 25;
         this.ctx.beginPath();
-        this.ctx.arc(sunPos.x, sunPos.y, 15, 0, Math.PI * 2);
+        this.ctx.arc(sunPos.x, sunPos.y, 10, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
-        
-        // 태양 라벨
+
+        // 태양 라벨 (위쪽은 시선·호가 지나가므로 아래에 표시)
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 14px Noto Sans KR';
+        this.ctx.font = 'bold 13px Noto Sans KR';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('태양', sunPos.x, sunPos.y - 25);
+        this.ctx.fillText('태양', sunPos.x, sunPos.y + 28);
     }
     
     drawEarth() {
@@ -299,8 +307,8 @@ class ParallaxSimulator {
         this.ctx.fill();
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = 'bold 13px Noto Sans KR';
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText('A점', pointA.x + 12, pointA.y + 5);
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('A점', pointA.x, pointA.y + 22);
         
         // B점 표시
         this.ctx.fillStyle = 'rgba(79, 195, 247, 0.8)';
@@ -308,8 +316,8 @@ class ParallaxSimulator {
         this.ctx.arc(pointB.x, pointB.y, 5, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.textAlign = 'right';
-        this.ctx.fillText('B점', pointB.x - 12, pointB.y + 5);
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('B점', pointB.x, pointB.y + 22);
         
         // 이등변삼각형 표시를 위한 보조선 (희미하게)
         const starXPos = this.project2D(this.stars.X.x, this.stars.X.y);
@@ -351,68 +359,97 @@ class ParallaxSimulator {
             positionLabel = '지구 (공전 중)';
         }
         
-        this.ctx.fillText(positionLabel, earthPos.x, earthPos.y - 18);
+        // 공전궤도 바깥쪽에 라벨 표시 (궤도 안쪽은 태양·호와 겹침)
+        const outward = Math.atan2(this.earthPos.y, this.earthPos.x);
+        this.ctx.fillText(positionLabel, earthPos.x + 30 * Math.cos(outward), earthPos.y + 30 * Math.sin(outward) + 4);
     }
     
     drawStars() {
-        // 별 X 그리기 (가까운 별)
-        const starXPos = this.project2D(this.stars.X.x, this.stars.X.y);
-        
-        this.ctx.fillStyle = this.stars.X.color;
-        this.ctx.shadowColor = this.stars.X.color;
-        this.ctx.shadowBlur = 20;
-        this.ctx.beginPath();
-        this.ctx.arc(starXPos.x, starXPos.y, 10, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 별 X 내부 밝은 점
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.shadowBlur = 0;
-        this.ctx.beginPath();
-        this.ctx.arc(starXPos.x, starXPos.y, 3, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 별 X 라벨
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 13px Noto Sans KR';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`별 X (${this.stars.X.distance}pc)`, starXPos.x, starXPos.y - 20);
-        
-        // 별 Y 그리기 (먼 별)
-        const starYPos = this.project2D(this.stars.Y.x, this.stars.Y.y);
-        
-        this.ctx.fillStyle = this.stars.Y.color;
-        this.ctx.shadowColor = this.stars.Y.color;
-        this.ctx.shadowBlur = 15;
-        this.ctx.beginPath();
-        this.ctx.arc(starYPos.x, starYPos.y, 8, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 별 Y 내부 밝은 점
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.shadowBlur = 0;
-        this.ctx.beginPath();
-        this.ctx.arc(starYPos.x, starYPos.y, 2, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 별 Y 라벨
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 13px Noto Sans KR';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`별 Y (${this.stars.Y.distance}pc)`, starYPos.x, starYPos.y - 18);
+        this.drawTargetStar('X', 10, 3, 20);
+        this.drawTargetStar('Y', 8, 2, 15);
     }
-    
+
+    drawTargetStar(name, radius, coreRadius, glow) {
+        const star = this.stars[name];
+        const pos = this.project2D(star.x, star.y);
+        const label = `별 ${name} (${star.distance.toFixed(1)}pc)`;
+
+        // 화면 위로 넘어간 별: 실제 위치 대신 상단에 방향 표시
+        if (this.isOffScreen(pos)) {
+            this.drawOffScreenMarker(name, pos.x, label);
+            return;
+        }
+
+        this.ctx.fillStyle = star.color;
+        this.ctx.shadowColor = star.color;
+        this.ctx.shadowBlur = glow;
+        this.ctx.beginPath();
+        this.ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 내부 밝은 점
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.shadowBlur = 0;
+        this.ctx.beginPath();
+        this.ctx.arc(pos.x, pos.y, coreRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 라벨
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 13px Noto Sans KR';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(label, pos.x, pos.y - radius - 10);
+    }
+
+    drawOffScreenMarker(name, x, label) {
+        const star = this.stars[name];
+        // 별 X는 왼쪽, 별 Y는 오른쪽에 라벨을 두어 둘 다 화면 밖이어도 겹치지 않게 함
+        const side = name === 'X' ? -1 : 1;
+        const markerX = x + side * 6;
+        const markerY = this.visibleTopY - 15;
+
+        // 위쪽 화살촉
+        this.ctx.fillStyle = star.color;
+        this.ctx.beginPath();
+        this.ctx.moveTo(markerX, markerY - 8);
+        this.ctx.lineTo(markerX - 6, markerY + 4);
+        this.ctx.lineTo(markerX + 6, markerY + 4);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // 라벨은 A·B점에서 올라가는 시선보다 바깥쪽에 배경과 함께 표시
+        const line1 = `${label} ↑ 화면 밖`;
+        const line2 = `연주시차 ${star.parallax.toFixed(3)}"`;
+        const textX = x + side * (this.earthOrbitRadius + 16);
+        this.ctx.font = 'bold 12px Noto Sans KR';
+        const boxWidth = Math.max(this.ctx.measureText(line1).width, 130) + 12;
+        const boxX = side < 0 ? textX - boxWidth + 6 : textX - 6;
+        this.ctx.fillStyle = 'rgba(0, 4, 40, 0.85)';
+        this.ctx.fillRect(boxX, markerY - 14, boxWidth, 34);
+
+        this.ctx.fillStyle = star.color;
+        this.ctx.textAlign = side < 0 ? 'right' : 'left';
+        this.ctx.fillText(line1, textX, markerY);
+        this.ctx.font = 'bold 11px Courier New';
+        this.ctx.fillText(line2, textX, markerY + 14);
+    }
+
     drawBackgroundStars() {
+        // 배경별: 화면 맨 위 띠 (대상 별들보다 훨씬 먼 거리)
         this.backgroundStars.forEach(star => {
-            const pos = this.project2D(star.x, star.y);
             this.ctx.globalAlpha = star.brightness * 0.7;
             this.ctx.fillStyle = '#ffffff';
             this.ctx.beginPath();
-            this.ctx.arc(pos.x, pos.y, star.size, 0, Math.PI * 2);
+            this.ctx.arc(star.x * this.canvasWidth, star.y, star.size, 0, Math.PI * 2);
             this.ctx.fill();
         });
-        
+
         this.ctx.globalAlpha = 1;
+
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        this.ctx.font = '11px Noto Sans KR';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('↑ 배경별 (매우 먼 거리 — 실제로는 화면보다 훨씬 위)', this.centerX, 52);
     }
     
     drawSightLines() {
@@ -467,9 +504,9 @@ class ParallaxSimulator {
         const length = 20;
         const arrowSize = 8;
         
-        // 화살표 위치 (시선의 중간 지점)
-        const midX = from.x + (to.x - from.x) * 0.3;
-        const midY = from.y + (to.y - from.y) * 0.3;
+        // 화살표 위치 (지구에서 일정 거리 — 별이 화면 밖에 있어도 보이도록)
+        const midX = from.x + 60 * Math.cos(angle);
+        const midY = from.y + 60 * Math.sin(angle);
         
         this.ctx.fillStyle = color;
         this.ctx.strokeStyle = color;
@@ -541,6 +578,9 @@ class ParallaxSimulator {
     
     drawParallaxArcCorrect(pointA, pointB, star, color, starName) {
         // 정확한 연주시차: 태양-별-지구(A점)이 이루는 각도 (별을 꼭짓점으로)
+        // 화면 밖 별은 호 대신 상단 표시에 시차값을 보여줌
+        if (this.isOffScreen(star)) return;
+
         const sunPos = this.project2D(0, 0);
         
         // 별에서 태양으로의 방향
@@ -577,14 +617,13 @@ class ParallaxSimulator {
         
         this.ctx.globalAlpha = 1;
         
-        // 연주시차 라벨 (별 근처에 표시)
-        const midAngle = (starToSunAngle + starToEarthAAngle) / 2;
-        const labelX = star.x + (radius + 25) * Math.cos(midAngle);
-        const labelY = star.y + (radius + 25) * Math.sin(midAngle);
-        
+        // 연주시차 라벨 (별 왼쪽 옆에 표시 — 별이 태양에 가까워도 태양·지구 라벨과 겹치지 않게)
+        const labelX = star.x - 18;
+        const labelY = star.y + 4;
+
         this.ctx.fillStyle = color;
         this.ctx.font = 'bold 12px Noto Sans KR';
-        this.ctx.textAlign = 'center';
+        this.ctx.textAlign = 'right';
         this.ctx.fillText(`연주시차 ${starName}`, labelX, labelY);
         
         // 연주시차 = 1/거리 (초각 단위)
@@ -616,7 +655,8 @@ class ParallaxSimulator {
     
     animate() {
         // 캔버스 클리어 (조감도 시점용 배경)
-        this.ctx.fillStyle = 'rgba(0, 4, 40, 0.2)';
+        // 반투명으로 덮으면 별 위치를 바꿨을 때 이전 위치의 잔상이 남으므로 완전히 지움
+        this.ctx.fillStyle = 'rgb(0, 4, 40)';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         if (this.isPlaying) {
@@ -650,28 +690,20 @@ class ParallaxSimulator {
         // 지구 위치에 따른 천구상 별 위치 계산
         // 연주시차 효과: 지구가 A점일 때와 B점일 때의 각도 차이
         
-        // 화면 폭의 10% 정도를 최대 시차 범위로 설정 (화면 이탈 방지)
+        // 화면 폭의 8%를 최대 이동 폭(한쪽)으로 제한 (화면 이탈 방지)
         const screenWidth = this.celestialCanvas.width / window.devicePixelRatio;
-        const maxOffset = screenWidth * 0.08; // 8% 범위로 제한
+        const maxOffset = screenWidth * 0.08;
         
-        // 별 X의 천구상 위치 (연주시차 효과 적용, 범위 제한)
-        const parallaxFactorX = this.stars.X.parallax * 50; // 시각적 효과를 위한 배율
-        const rawOffsetX = parallaxFactorX * Math.cos(this.earthPhase);
-        const constrainedOffsetX = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX));
-        
-        // 각도를 픽셀로 변환하여 계산
-        const baseXPixel = (this.celestialData.starX.baseAngle / 360) * screenWidth;
-        const finalXPixel = baseXPixel + constrainedOffsetX;
-        this.celestialData.starX.angle = (finalXPixel / screenWidth) * 360;
-        
-        // 별 Y의 천구상 위치 (더 작은 연주시차 효과)
-        const parallaxFactorY = this.stars.Y.parallax * 50;
-        const rawOffsetY = parallaxFactorY * Math.cos(this.earthPhase);
-        const constrainedOffsetY = Math.max(-maxOffset/4, Math.min(maxOffset/4, rawOffsetY)); // 더 작은 범위
-        
-        const baseYPixel = (this.celestialData.starY.baseAngle / 360) * screenWidth;
-        const finalYPixel = baseYPixel + constrainedOffsetY;
-        this.celestialData.starY.angle = (finalYPixel / screenWidth) * 360;
+        ['X', 'Y'].forEach(name => {
+            const data = this.celestialData['star' + name];
+            // 한쪽 이동 폭(픽셀) = 연주시차 p에 비례 (시각적 효과를 위한 배율 50)
+            data.amplitude = Math.min(this.stars[name].parallax * 50, maxOffset);
+            // 지구가 A점(오른쪽)에 있으면 가까운 별은 배경별보다 왼쪽에 보임 → 부호 음수
+            const offset = -data.amplitude * Math.cos(this.earthPhase);
+            
+            const basePixel = (data.baseAngle / 360) * screenWidth;
+            data.angle = ((basePixel + offset) / screenWidth) * 360;
+        });
     }
     
     drawCelestialSphere() {
@@ -739,7 +771,7 @@ class ParallaxSimulator {
         this.celestialData.backgroundStarPositions.forEach((star, index) => {
             const x = (star.angle / 360) * (this.celestialCanvas.width / window.devicePixelRatio);
             // 고정된 y 위치 (진동 제거)
-            const y = this.celestialCenterY + ((index % 3) - 1) * 20; // -20, 0, +20 으로 3줄 배치
+            const y = this.celestialCenterY + ((index % 3) - 1) * 10; // -10, 0, +10 으로 3줄 배치
             
             this.celestialCtx.globalAlpha = star.brightness * 0.6;
             this.celestialCtx.fillStyle = '#ffffff';
@@ -752,49 +784,84 @@ class ParallaxSimulator {
     }
     
     drawCelestialTargetStars() {
-        // 별 X 그리기
-        const starXPos = this.angleToPosition(this.celestialData.starX.angle);
-        this.celestialCtx.fillStyle = this.stars.X.color;
-        this.celestialCtx.shadowColor = this.stars.X.color;
-        this.celestialCtx.shadowBlur = 15;
-        this.celestialCtx.beginPath();
-        this.celestialCtx.arc(starXPos.x, starXPos.y, 8, 0, Math.PI * 2);
-        this.celestialCtx.fill();
+        // 두 별을 서로 다른 높이에 그려 겹치지 않게 함 (별 X는 배경별 줄 위, 별 Y는 아래)
+        this.drawCelestialTargetStar('X', 40, 8, 3, 15);
+        this.drawCelestialTargetStar('Y', this.celestialHeight - 32, 5, 2, 10);
+    }
+    
+    drawCelestialTargetStar(name, rowY, radius, coreRadius, glow) {
+        const ctx = this.celestialCtx;
+        const star = this.stars[name];
+        const data = this.celestialData['star' + name];
+        const canvasWidth = this.celestialCanvas.width / window.devicePixelRatio;
+        const baseX = (data.baseAngle / 360) * canvasWidth;
+        const amp = data.amplitude;
         
-        // 별 X 내부 밝은 점
-        this.celestialCtx.fillStyle = '#ffffff';
-        this.celestialCtx.shadowBlur = 0;
-        this.celestialCtx.beginPath();
-        this.celestialCtx.arc(starXPos.x, starXPos.y, 3, 0, Math.PI * 2);
-        this.celestialCtx.fill();
+        // 1년 동안의 이동 범위: 왼쪽 끝 = A점에서 본 위치, 오른쪽 끝 = B점에서 본 위치
+        ctx.strokeStyle = star.color;
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1;
+        [baseX - amp, baseX + amp].forEach(x => {
+            ctx.beginPath();
+            ctx.arc(x, rowY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+        ctx.globalAlpha = 1;
         
-        // 별 X 라벨
-        this.celestialCtx.fillStyle = '#ffffff';
-        this.celestialCtx.font = 'bold 11px Noto Sans KR';
-        this.celestialCtx.textAlign = 'center';
-        this.celestialCtx.fillText('X', starXPos.x, starXPos.y - 12);
+        // 이동 폭 = 2p 브래킷 (가운데 눈금 = 태양에서 본 방향)
+        const bracketY = rowY + radius + 8;
+        ctx.strokeStyle = star.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(baseX - amp, bracketY - 4);
+        ctx.lineTo(baseX - amp, bracketY);
+        ctx.lineTo(baseX + amp, bracketY);
+        ctx.lineTo(baseX + amp, bracketY - 4);
+        ctx.moveTo(baseX, bracketY);
+        ctx.lineTo(baseX, bracketY + 3);
+        ctx.stroke();
         
-        // 별 Y 그리기
-        const starYPos = this.angleToPosition(this.celestialData.starY.angle);
-        this.celestialCtx.fillStyle = this.stars.Y.color;
-        this.celestialCtx.shadowColor = this.stars.Y.color;
-        this.celestialCtx.shadowBlur = 10;
-        this.celestialCtx.beginPath();
-        this.celestialCtx.arc(starYPos.x, starYPos.y, 5, 0, Math.PI * 2);
-        this.celestialCtx.fill();
+        // 브래킷 양 끝 라벨 (폭이 좁으면 생략)
+        if (amp > 14) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '10px Noto Sans KR';
+            ctx.textAlign = 'center';
+            ctx.fillText('A점', baseX - amp, bracketY + 12);
+            ctx.fillText('B점', baseX + amp, bracketY + 12);
+        }
         
-        // 별 Y 내부 밝은 점
-        this.celestialCtx.fillStyle = '#ffffff';
-        this.celestialCtx.shadowBlur = 0;
-        this.celestialCtx.beginPath();
-        this.celestialCtx.arc(starYPos.x, starYPos.y, 2, 0, Math.PI * 2);
-        this.celestialCtx.fill();
+        // 이동 폭 설명: 오른쪽에 표시 (폭이 아주 좁아도 읽히도록)
+        const p = star.parallax;
+        ctx.fillStyle = star.color;
+        ctx.font = 'bold 11px Noto Sans KR';
+        ctx.textAlign = 'left';
+        const textX = baseX + Math.max(amp, radius) + 14;
+        ctx.fillText(`별 ${name}: A↔B 이동 폭 = 2p = ${(2 * p).toFixed(3)}"`, textX, rowY - 2);
+        ctx.font = '10px Noto Sans KR';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillText(`연주시차 p는 그 절반 = ${p.toFixed(3)}"`, textX, rowY + 11);
         
-        // 별 Y 라벨
-        this.celestialCtx.fillStyle = '#ffffff';
-        this.celestialCtx.font = 'bold 11px Noto Sans KR';
-        this.celestialCtx.textAlign = 'center';
-        this.celestialCtx.fillText('Y', starYPos.x, starYPos.y - 10);
+        // 현재 별 위치
+        const pos = { x: this.angleToPosition(data.angle).x, y: rowY };
+        ctx.fillStyle = star.color;
+        ctx.shadowColor = star.color;
+        ctx.shadowBlur = glow;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 내부 밝은 점
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, coreRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 라벨
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Noto Sans KR';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, pos.x, pos.y - radius - 4);
     }
     
     angleToPosition(angle) {

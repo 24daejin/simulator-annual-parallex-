@@ -402,3 +402,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: #29b6f6;
 }
+/* 천구 캔버스: 가로로 긴 띠 형태로 높이 고정 (반응형 규칙의 height: auto보다 우선) */
+.celestial-canvas-container #celestialCanvas {
+    display: block;
+    width: 100%;
+    height: 150px;
+}
